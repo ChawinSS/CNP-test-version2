@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PMS Data Extractor & CNP Tracker</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --border-dark: #cbd5e1;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --highlight-bg: #fef08a;
+      --highlight-border: #eab308;
+      
+      /* CNP Excel Palette */
+      --cnp-green-bg: #22c55e;
+      --cnp-green-text: #ffffff;
+      --cnp-red-bg: #ef4444;
+      --cnp-red-text: #ffffff;
+      --cnp-black-bg: #0f172a;
+      --cnp-header: #581c87;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      padding: 1.5rem 1rem;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 98vw;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    header h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    header p {
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+      font-size: 0.9rem;
+    }
+
+    .dropzone-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    @media (max-width: 768px) {
+      .dropzone-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .dropzone {
+      border: 2px dashed var(--border-dark);
+      border-radius: 10px;
+      background-color: var(--card);
+      padding: 1.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background-color 0.2s;
+    }
+
+    .dropzone.dragover {
+      border-color: var(--accent);
+      background-color: #eff6ff;
+    }
+
+    .dropzone svg {
+      width: 36px;
+      height: 36px;
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 1.75;
+      margin-bottom: 0.4rem;
+    }
+
+    .dropzone.secondary svg {
+      stroke: var(--text-muted);
+    }
+
+    .dropzone p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .raw-input-toggle {
+      background: none;
+      border: none;
+      color: var(--accent);
+      cursor: pointer;
+      font-size: 0.85rem;
+      text-decoration: underline;
+      align-self: flex-start;
+    }
+
+    textarea {
+      width: 100%;
+      height: 90px;
+      background-color: var(--card);
+      border: 1px solid var(--border-dark);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 0.6rem;
+      font-family: monospace;
+      font-size: 0.85rem;
+      resize: vertical;
+      display: none;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      background-color: var(--card);
+      padding: 0.85rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .search-box {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      position: relative;
+    }
+
+    .search-box input {
+      flex: 1;
+      background-color: #ffffff;
+      border: 1px solid var(--border-dark);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 0.55rem 0.75rem;
+      font-size: 0.875rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-box input:focus {
+      border-color: var(--accent);
+    }
+
+    .search-match-badge {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #ca8a04;
+      white-space: nowrap;
+    }
+
+    .actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .badge-count {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .btn {
+      background-color: var(--accent);
+      color: #ffffff;
+      border: none;
+      border-radius: 6px;
+      padding: 0.45rem 0.8rem;
+      font-size: 0.825rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: background-color 0.2s;
+    }
+
+    .btn:hover {
+      background-color: var(--accent-hover);
+    }
+
+    .btn-secondary {
+      background-color: #ffffff;
+      border: 1px solid var(--border-dark);
+      color: var(--text);
+    }
+
+    .btn-secondary:hover {
+      background-color: var(--bg);
+    }
+
+    .btn-warning {
+      background-color: #fef08a;
+      border: 1px solid #eab308;
+      color: #854d0e;
+    }
+
+    .btn-warning:hover {
+      background-color: #fde047;
+    }
+
+    .btn-copy-row {
+      background-color: #0f172a;
+      color: #ffffff;
+      border: none;
+      border-radius: 4px;
+      padding: 0.25rem 0.55rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-copy-row:hover {
+      background-color: #334155;
+    }
+
+    .btn-copy-row.copied {
+      background-color: #16a34a !important;
+      color: #ffffff;
+    }
+
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background-color: var(--card);
+      max-height: 480px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: center;
+      font-size: 0.78rem;
+    }
+
+    #dataTable th, #dataTable td {
+      text-align: left;
+      padding: 0.45rem 0.6rem;
+    }
+
+    #dataTable th:first-child, #dataTable td:first-child {
+      text-align: center;
+    }
+
+    #matchesSection table th, #matchesSection table td {
+      padding: 0.45rem 0.3rem;
+      text-align: center;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background-color: #f1f5f9;
+      color: var(--text);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.68rem;
+      letter-spacing: 0.02em;
+      z-index: 10;
+      line-height: 1.2;
+      border-bottom: 1px solid var(--border-dark);
+    }
+
+    #matchesSection th {
+      background-color: var(--cnp-header);
+      color: #ffffff;
+      border-bottom: none;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background-color: #f8fafc;
+    }
+
+    #dataTable tr.row-matched {
+      background-color: var(--highlight-bg) !important;
+      outline: 2px solid var(--highlight-border);
+    }
+
+    #dataTable tr.row-matched td {
+      color: #000000;
+      font-weight: 600;
+    }
+
+    .highlight {
+      color: #0369a1;
+      font-family: monospace;
+      white-space: nowrap;
+    }
+
+    /* Red, bolded, underlined last 4 digits for high visibility */
+    .highlight-bold-suffix {
+      font-weight: 800;
+      color: #dc2626;
+      text-decoration: underline;
+    }
+
+    /* Review badge for unverified/questionable rate codes */
+    .review-text-red {
+      color: #dc2626;
+      font-weight: 700;
+      border-bottom: 1px dashed #dc2626;
+      padding: 0.1rem 0.2rem;
+    }
+
+    .amount {
+      color: #047857;
+      font-family: monospace;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .empty-state {
+      padding: 2.5rem 1rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
+    .section-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+      color: var(--text);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    #matchesSection {
+      display: none;
+      flex-direction: column;
+      gap: 0.6rem;
+      padding-top: 0.8rem;
+      border-top: 2px dashed var(--border-dark);
+    }
+
+    .missing-alert {
+      background-color: #fff1f2;
+      border: 1px solid #fecdd3;
+      color: #9f1239;
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      display: none;
+    }
+
+    .audit-input {
+      padding: 0.25rem 0.4rem;
+      border: 1px solid var(--border-dark);
+      border-radius: 4px;
+      font-size: 0.75rem;
+      color: var(--text);
+      background-color: #ffffff;
+      outline: none;
+      width: 100%;
+    }
+
+    .custom-tag-wrapper {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: #ffffff;
+      padding: 0.25rem 0.5rem;
+      border-radius: 6px;
+      border: 1px solid var(--border-dark);
+      font-size: 0.8rem;
+      font-weight: normal;
+    }
+
+    .custom-tag-input {
+      width: 80px;
+      padding: 0.2rem 0.4rem;
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text);
+      text-transform: uppercase;
+      outline: none;
+    }
+
+    .cell-green {
+      background-color: var(--cnp-green-bg);
+      color: var(--cnp-green-text);
+      font-weight: 700;
+      padding: 0.25rem 0.5rem;
+      border-radius: 3px;
+      display: inline-block;
+      min-width: 32px;
+      font-size: 0.75rem;
+    }
+
+    .cell-red {
+      background-color: var(--cnp-red-bg);
+      color: var(--cnp-red-text);
+      font-weight: 700;
+      padding: 0.25rem 0.45rem;
+      border-radius: 3px;
+      display: inline-block;
+      font-size: 0.72rem;
+      white-space: nowrap;
+    }
+
+    .cell-black {
+      background-color: var(--cnp-black-bg);
+      color: transparent;
+      padding: 0.25rem 0.4rem;
+      border-radius: 3px;
+      display: inline-block;
+      min-width: 28px;
+      user-select: none;
+      font-size: 0.75rem;
+    }
+
+    .cell-code {
+      background-color: var(--cnp-green-bg);
+      color: #ffffff;
+      font-weight: 700;
+      font-family: monospace;
+      padding: 0.25rem 0.5rem;
+      border-radius: 3px;
+      display: inline-block;
+      font-size: 0.75rem;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>PMS Data Extractor & CNP Tracker</h1>
+      <p>Drop your pipe-separated export file or paste raw text below.</p>
+      <p style="font-size: 0.8rem; color: var(--text-muted);">Arrivals: Detailed &gt; date &gt; download as &gt; Delimited Data &gt; Sort data</p>
+    </header>
+
+    <!-- Top Dropzone Row -->
+    <div class="dropzone-grid">
+      <!-- Main Drop Zone -->
+      <div class="dropzone" id="dropzone">
+        <svg viewBox="0 0 24 24">
+          <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <p><strong>Drag & Drop</strong> PMS arrivals file here, or <span style="color: var(--accent); text-decoration: underline;">browse files</span></p>
+        <input type="file" id="fileInput" style="display: none;" accept=".txt,.csv,.log">
+      </div>
+
+      <!-- Secondary Drop Zone -->
+      <div class="dropzone secondary" id="secondaryDropzone" style="border-style: dotted; background-color: #fafaf9;">
+        <svg viewBox="0 0 24 24" style="stroke: #94a3b8;">
+          <path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <p><strong>Secondary Data Upload</strong> (Reserved for Future Development)</p>
+        <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">Drop supplementary reports / future data sources here</p>
+        <input type="file" id="secondaryFileInput" style="display: none;" accept=".txt,.csv,.xlsx">
+      </div>
+    </div>
+
+    <button class="raw-input-toggle" id="toggleInputBtn">+ Or paste plain text</button>
+    <textarea id="rawInput" placeholder="Paste pipe-delimited data here (with header)..."></textarea>
+
+    <div class="toolbar">
+      <div class="search-box">
+        <input type="text" id="resvSearchInput" placeholder="Enter comma-separated IDs (e.g. 323899642, 320570990, 319010687)...">
+        <span class="search-match-badge" id="searchMatchBadge"></span>
+      </div>
+
+      <div class="missing-alert" id="missingAlert"></div>
+
+      <div class="actions">
+        <div>
+          <button class="btn btn-warning" id="showMatchesBtn">Show Matches Table</button>
+        </div>
+
+        <div>
+          <button class="btn btn-secondary" id="clearBtn">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main All Records Table -->
+    <div>
+      <div class="section-title">
+        <span>All Extracted Reservations</span>
+        <span class="badge-count" id="rowCount">0 reservations</span>
+      </div>
+      <div class="table-container">
+        <table id="dataTable">
+          <thead>
+            <tr>
+              <th style="width: 45px;">#</th>
+              <th>RESERVATION ID (RESV_NAME_ID)</th>
+              <th>RATE CODE</th>
+              <th>AMOUNT</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <tr>
+              <td colspan="4" class="empty-state">No data loaded yet. Drop a file or paste text above.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Matched Records Table Section -->
+    <div id="matchesSection">
+      <div class="section-title">
+        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+          <span>CNP - Manuelle Transaktionen (Matches)</span>
+          <div class="custom-tag-wrapper">
+            <span>Staff Initials:</span>
+            <input type="text" id="customTagInput" class="custom-tag-input" value="-" placeholder="Initials">
+          </div>
+        </div>
+        <span class="badge-count" id="matchedCount">0 matches</span>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 35px;">#</th>
+              <th style="width: 110px;">RESERVATION ID (RESV_NAME_ID)</th>
+              <th style="width: 85px;">Rate Code</th>
+              <th style="width: 85px;">Wert</th>
+              <th>Ist Autorisierung nötig?<br><span style="font-weight: normal; font-size: 0.6rem; opacity: 0.9;">(Außer No-Show/Late Cxl - Immer Ja)</span></th>
+              <th style="width: 75px;">Autorisierungs-art</th>
+              <th>Hält das KKA ein?</th>
+              <th>KK immer verborgen?</th>
+              <th>Alle Abbuchungen genehmigt?</th>
+              <th>Richtige KK belastet?</th>
+              <th style="width: 70px;">Maßnahme</th>
+              <th style="width: 65px;">Problem gelöst?</th>
+              <th style="text-align: left; min-width: 190px;">Kommentaren</th>
+              <th style="width: 80px;">Aktion</th>
+            </tr>
+          </thead>
+          <tbody id="matchesTableBody">
+            <tr>
+              <td colspan="14" class="empty-state">No matches found for search terms.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const secondaryDropzone = document.getElementById('secondaryDropzone');
+    const secondaryFileInput = document.getElementById('secondaryFileInput');
+    const rawInput = document.getElementById('rawInput');
+    const toggleInputBtn = document.getElementById('toggleInputBtn');
+    const resvSearchInput = document.getElementById('resvSearchInput');
+    const customTagInput = document.getElementById('customTagInput');
+    const searchMatchBadge = document.getElementById('searchMatchBadge');
+    const missingAlert = document.getElementById('missingAlert');
+    const showMatchesBtn = document.getElementById('showMatchesBtn');
+    const matchesSection = document.getElementById('matchesSection');
+    const tableBody = document.getElementById('tableBody');
+    const matchesTableBody = document.getElementById('matchesTableBody');
+    const rowCount = document.getElementById('rowCount');
+    const matchedCount = document.getElementById('matchedCount');
+    const clearBtn = document.getElementById('clearBtn');
+
+    let parsedData = [];
+    let matchedData = [];
+    const copiedRowIndices = new Set();
+
+    toggleInputBtn.addEventListener('click', () => {
+      if (rawInput.style.display === 'block') {
+        rawInput.style.display = 'none';
+        toggleInputBtn.textContent = '+ Or paste plain text';
+      } else {
+        rawInput.style.display = 'block';
+        toggleInputBtn.textContent = '- Hide plain text box';
+        rawInput.focus();
+      }
+    });
+
+    dropzone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) handleFile(e.target.files[0]);
+    });
+
+    secondaryDropzone.addEventListener('click', () => secondaryFileInput.click());
+
+    ['dragenter', 'dragover'].forEach(event => {
+      dropzone.addEventListener(event, (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+      });
+      secondaryDropzone.addEventListener(event, (e) => {
+        e.preventDefault();
+        secondaryDropzone.classList.add('dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(event => {
+      dropzone.addEventListener(event, (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+      });
+      secondaryDropzone.addEventListener(event, (e) => {
+        e.preventDefault();
+        secondaryDropzone.classList.remove('dragover');
+      });
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+      if (e.dataTransfer.files.length > 0) {
+        handleFile(e.dataTransfer.files[0]);
+      } else {
+        const text = e.dataTransfer.getData('text');
+        if (text) processData(text);
+      }
+    });
+
+    rawInput.addEventListener('input', (e) => processData(e.target.value));
+
+    resvSearchInput.addEventListener('input', () => {
+      applyFilters();
+    });
+
+    customTagInput.addEventListener('input', () => {
+      renderMatchesTable(matchedData);
+    });
+
+    showMatchesBtn.addEventListener('click', () => {
+      matchesSection.style.display = 'flex';
+      matchesSection.scrollIntoView({ behavior: 'smooth' });
+    });
+
+    function handleFile(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => processData(e.target.result);
+      reader.readAsText(file);
+    }
+
+    function determineAuthorizationNeed(shortStatus, guaranteeCode) {
+      const s = (shortStatus || '').toUpperCase().trim();
+      const g = (guaranteeCode || '').toUpperCase().trim();
+
+      if (s === 'NOSHOW' || s === 'NS' || g.includes('NO-SHOW') || g.includes('NOSHOW')) {
+        return 'Nein (No-Show)';
+      }
+      if (s === 'CXL' || s === 'CAN' || s === 'CANCELLED' || g.includes('CXL') || g.includes('CANCEL')) {
+        return 'Nein (Late Cxl)';
+      }
+      return 'Ja';
+    }
+
+    // Includes EXNONFBB and EXPKNONF mapped to e-CNP
+    function determineAuthCode(rateCode) {
+      const code = (rateCode || '').toUpperCase().trim();
+      if (code === 'NONFBOOK' || code === 'NONFBKBB') {
+        return 'm-CNP';
+      }
+      if (code === 'EXPKFLEX' || code === 'C24NOFRO' || code === 'EXPKNONF' || code === 'EXNONFBB') {
+        return 'e-CNP';
+      }
+      return '';
+    }
+
+    function getBaseCommentPrefix(authCode, rateCode, companyName, authNeed) {
+      if (authNeed === 'Nein (No-Show)') return 'OK NoShow';
+      if (authNeed === 'Nein (Late Cxl)') return 'OK Cancellation';
+
+      const code = (rateCode || '').toUpperCase().trim();
+      const company = (companyName || '').toUpperCase().trim();
+
+      if (authCode === 'e-CNP') {
+        if (code === 'C24NOFRO' || company.includes('CHECK24')) {
+          return 'OK NonFlex Check24';
+        }
+        return 'OK Expedia Collect';
+      }
+
+      if (authCode === 'm-CNP') {
+        if (company.includes('CHECK24') || code.includes('C24')) {
+          return 'OK NonFlex Check 24';
+        }
+        return 'OK NonFlex Booking.com';
+      }
+
+      return 'OK Custom';
+    }
+
+    // Helper: Formats ID and bolds + colors last 4 digits red
+    function formatResvIdWithBoldLast4(resvId) {
+      const idStr = String(resvId || '').trim();
+      if (idStr.length <= 4) {
+        return `<span class="highlight-bold-suffix">${escapeHtml(idStr)}</span>`;
+      }
+      const prefix = idStr.slice(0, -4);
+      const last4 = idStr.slice(-4);
+      return `${escapeHtml(prefix)}<span class="highlight-bold-suffix">${escapeHtml(last4)}</span>`;
+    }
+
+    function processData(text) {
+      if (!text || !text.trim()) {
+        resetTable();
+        return;
+      }
+
+      const rawLines = text.trim().split(/\r?\n/).filter(line => line.trim().length > 0);
+      if (rawLines.length < 2) return;
+
+      const headerLine = rawLines[0];
+      const headers = headerLine.split('|').map(h => h.trim());
+      
+      const resvIdIdx = headers.indexOf('RESV_NAME_ID');
+      const rateCodeIdx = headers.indexOf('RATE_CODE');
+      const rateAmountIdx = headers.indexOf('EFFECTIVE_RATE_AMOUNT');
+      const currencyIdx = headers.indexOf('CURRENCY_CODE');
+      const shortStatusIdx = headers.indexOf('SHORT_RESV_STATUS');
+      const guaranteeCodeIdx = headers.indexOf('GUARANTEE_CODE');
+      const companyNameIdx = headers.indexOf('COMPANY_NAME');
+
+      const stitchedRows = [];
+      let currentRow = '';
+
+      for (let i = 1; i < rawLines.length; i++) {
+        const line = rawLines[i].trim();
+        const isNewRecord = /^\d{8}\|/.test(line);
+
+        if (isNewRecord) {
+          if (currentRow) stitchedRows.push(currentRow);
+          currentRow = line;
+        } else {
+          currentRow += (currentRow ? ' ' : '') + line;
+        }
+      }
+      if (currentRow) stitchedRows.push(currentRow);
+
+      parsedData = [];
+
+      for (const row of stitchedRows) {
+        const cols = row.split('|');
+        const curr = currencyIdx !== -1 && cols[currencyIdx] ? cols[currencyIdx].trim() : '';
+        const rawAmount = rateAmountIdx !== -1 && cols[rateAmountIdx] ? cols[rateAmountIdx].trim() : '';
+        const resvId = resvIdIdx !== -1 && cols[resvIdIdx] ? cols[resvIdIdx].trim() : '';
+        const rateCode = rateCodeIdx !== -1 && cols[rateCodeIdx] ? cols[rateCodeIdx].trim() : '';
+        const shortStatus = shortStatusIdx !== -1 && cols[shortStatusIdx] ? cols[shortStatusIdx].trim() : '';
+        const guaranteeCode = guaranteeCodeIdx !== -1 && cols[guaranteeCodeIdx] ? cols[guaranteeCodeIdx].trim() : '';
+        const companyName = companyNameIdx !== -1 && cols[companyNameIdx] ? cols[companyNameIdx].trim() : '';
+
+        if (resvId) {
+          const authNeed = determineAuthorizationNeed(shortStatus, guaranteeCode);
+          const authCode = determineAuthCode(rateCode);
+          const commentPrefix = getBaseCommentPrefix(authCode, rateCode, companyName, authNeed);
+          const isPendingReview = (rateCode === 'EXNONFBB' || rateCode === 'EXPKNONF');
+
+          parsedData.push({
+            resvId: resvId,
+            rateCode: rateCode || '-',
+            rateAmount: rawAmount !== '' ? `${rawAmount} ${curr}`.trim() : '0.00',
+            authNeed: authNeed,
+            authCode: authCode,
+            commentPrefix: commentPrefix,
+            isPendingReview: isPendingReview
+          });
+        }
+      }
+
+      renderTable(parsedData);
+      applyFilters();
+    }
+
+    function renderTable(data) {
+      if (!data.length) {
+        resetTable();
+        return;
+      }
+
+      tableBody.innerHTML = data.map((row, idx) => `
+        <tr data-resv-id="${escapeHtml(row.resvId)}">
+          <td>${idx + 1}</td>
+          <td class="highlight">${escapeHtml(row.resvId)}</td>
+          <td><strong>${escapeHtml(row.rateCode)}</strong></td>
+          <td class="amount">${escapeHtml(row.rateAmount)}</td>
+        </tr>
+      `).join('');
+
+      rowCount.textContent = `${data.length} reservations`;
+    }
+
+    function applyFilters() {
+      const rawSearch = resvSearchInput.value;
+      const searchTerms = rawSearch
+        .split(/[,;\s]+/)
+        .map(term => term.trim().toLowerCase())
+        .filter(term => term.length > 0);
+
+      const rows = tableBody.querySelectorAll('tr[data-resv-id]');
+      let matchCount = 0;
+      let firstMatch = null;
+      matchedData = [];
+      const foundTerms = new Set();
+
+      rows.forEach(row => {
+        const resvId = row.getAttribute('data-resv-id').toLowerCase();
+        const matchedTerm = searchTerms.find(term => resvId.includes(term));
+        const isMatched = searchTerms.length > 0 && !!matchedTerm;
+
+        row.classList.remove('row-matched');
+
+        if (isMatched) {
+          row.classList.add('row-matched');
+          foundTerms.add(matchedTerm);
+          matchCount++;
+          if (!firstMatch) firstMatch = row;
+
+          const rowData = parsedData.find(d => d.resvId.toLowerCase() === resvId);
+          if (rowData && !matchedData.includes(rowData)) {
+            matchedData.push(rowData);
+          }
+        }
+      });
+
+      if (searchTerms.length === 0) {
+        searchMatchBadge.textContent = '';
+        missingAlert.style.display = 'none';
+      } else if (matchCount > 0) {
+        searchMatchBadge.textContent = `Found ${matchCount} match${matchCount === 1 ? '' : 'es'}`;
+        
+        const missingTerms = searchTerms.filter(t => !foundTerms.has(t));
+        if (missingTerms.length > 0) {
+          missingAlert.style.display = 'block';
+          missingAlert.innerHTML = `<strong>Not found in file (${missingTerms.length}):</strong> ${missingTerms.join(', ')}`;
+        } else {
+          missingAlert.style.display = 'none';
+        }
+      } else {
+        searchMatchBadge.textContent = 'No matches found';
+        missingAlert.style.display = 'block';
+        missingAlert.innerHTML = `<strong>None of the entered IDs were found in the uploaded file.</strong>`;
+      }
+
+      renderMatchesTable(matchedData);
+    }
+
+    function renderMatchesTable(data) {
+      matchedCount.textContent = `${data.length} match${data.length === 1 ? '' : 'es'}`;
+      if (!data.length) {
+        matchesTableBody.innerHTML = `<tr><td colspan="14" class="empty-state">No matches found for search terms.</td></tr>`;
+        return;
+      }
+
+      const userTag = (customTagInput.value || '').trim();
+
+      matchesTableBody.innerHTML = data.map((row, idx) => {
+        const isMCNP = row.authCode === 'm-CNP';
+        const isECNP = row.authCode === 'e-CNP';
+        const isNoShowOrCxl = row.authNeed.startsWith('Nein');
+        const fullComment = userTag ? `${row.commentPrefix} ${userTag}` : row.commentPrefix;
+        const isCopied = copiedRowIndices.has(idx);
+
+        return `
+          <tr data-index="${idx}">
+            <td>${idx + 1}</td>
+            <!-- Reservation ID with last 4 digits in bold red text -->
+            <td class="highlight">${formatResvIdWithBoldLast4(row.resvId)}</td>
+            <td><strong>${escapeHtml(row.rateCode)}</strong></td>
+            <td class="amount">${escapeHtml(row.rateAmount)}</td>
+            
+            <!-- 1) Ist Autorisierung nötig? -->
+            <td>
+              ${isNoShowOrCxl 
+                ? `<span class="cell-red">${escapeHtml(row.authNeed)}</span>` 
+                : `<span class="cell-green">Ja</span>`
+              }
+            </td>
+
+            <!-- 2) Autorisierungs-art -->
+            <td>
+              ${row.authCode 
+                ? `<span class="cell-code">${escapeHtml(row.authCode)}</span>` 
+                : isNoShowOrCxl 
+                  ? `<span class="cell-black">-</span>` 
+                  : `<input type="text" class="audit-input cell-auth-input" placeholder="Art">`
+              }
+            </td>
+
+            <!-- 3) Hält das KKA ein? -->
+            <td>
+              ${isMCNP 
+                ? `<span class="cell-green">Ja</span>` 
+                : `<span class="cell-black">-</span>`
+              }
+            </td>
+
+            <!-- 4) KK immer verborgen? -->
+            <td>
+              ${isMCNP 
+                ? `<span class="cell-green">Ja</span>` 
+                : `<span class="cell-black">-</span>`
+              }
+            </td>
+
+            <!-- 5) Alle Abbuchungen genehmigt? -->
+            <td>
+              ${isNoShowOrCxl 
+                ? `<span class="cell-black">-</span>` 
+                : `<span class="cell-green">Ja</span>`
+              }
+            </td>
+
+            <!-- 6) Richtige KK belastet? -->
+            <td>
+              ${isMCNP 
+                ? `<span class="cell-green">Ja</span>` 
+                : `<span class="cell-black">-</span>`
+              }
+            </td>
+
+            <!-- 7) Maßnahme -->
+            <td>
+              <span class="cell-black">-</span>
+            </td>
+
+            <!-- 8) Problem gelöst? -->
+            <td>
+              ${isECNP 
+                ? `<span class="cell-green">Ja</span>` 
+                : `<span class="cell-black">-</span>`
+              }
+            </td>
+
+            <!-- 9) Kommentaren (Highlighted in red text if EXNONFBB or EXPKNONF for review) -->
+            <td style="text-align: left; font-size: 0.78rem; font-weight: 600; white-space: nowrap;">
+              ${row.isPendingReview 
+                ? `<span class="review-text-red" title="Please double check with colleagues">${escapeHtml(fullComment)} (Review)</span>`
+                : escapeHtml(fullComment)
+              }
+            </td>
+
+            <!-- Row Copy Button -->
+            <td>
+              <button class="btn-copy-row ${isCopied ? 'copied' : ''}" onclick="copyExcelRow(${idx}, this)">
+                ${isCopied ? '✓ Copied' : '📋 Copy'}
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function copyExcelRow(idx, btn) {
+      const row = matchedData[idx];
+      if (!row) return;
+
+      const isMCNP = row.authCode === 'm-CNP';
+      const isECNP = row.authCode === 'e-CNP';
+      const isNoShowOrCxl = row.authNeed.startsWith('Nein');
+      const userTag = (customTagInput.value || '').trim();
+      const fullComment = userTag ? `${row.commentPrefix} ${userTag}` : row.commentPrefix;
+
+      let authArt = row.authCode;
+      if (!authArt) {
+        const tr = matchesTableBody.querySelectorAll('tr')[idx];
+        const input = tr ? tr.querySelector('.cell-auth-input') : null;
+        authArt = input ? input.value.trim() : '';
+      }
+
+      const col1_authNeed = isNoShowOrCxl ? row.authNeed : 'Ja';
+      const col2_authArt = isNoShowOrCxl ? '' : (authArt || '');
+      const col3_holdsKKA = isMCNP ? 'Ja' : '';
+      const col4_hiddenCC = isMCNP ? 'Ja' : '';
+      const col5_allApproved = isNoShowOrCxl ? '' : 'Ja';
+      const col6_correctCC = isMCNP ? 'Ja' : '';
+      const col7_measure = '';
+      const col8_problemSolved = isECNP ? 'Ja' : '';
+      const col9_comments = fullComment;
+
+      const excelRowText = [
+        col1_authNeed,
+        col2_authArt,
+        col3_holdsKKA,
+        col4_hiddenCC,
+        col5_allApproved,
+        col6_correctCC,
+        col7_measure,
+        col8_problemSolved,
+        col9_comments
+      ].join('\t');
+
+      navigator.clipboard.writeText(excelRowText).then(() => {
+        copiedRowIndices.add(idx);
+        btn.textContent = '✓ Copied';
+        btn.classList.add('copied');
+      }).catch(err => {
+        alert('Could not copy to clipboard: ' + err);
+      });
+    }
+
+    function resetTable() {
+      parsedData = [];
+      matchedData = [];
+      copiedRowIndices.clear();
+      tableBody.innerHTML = `<tr><td colspan="4" class="empty-state">No data loaded yet. Drop a file or paste text above.</td></tr>`;
+      matchesTableBody.innerHTML = `<tr><td colspan="14" class="empty-state">No matches found for search terms.</td></tr>`;
+      rowCount.textContent = '0 reservations';
+      matchedCount.textContent = '0 matches';
+      searchMatchBadge.textContent = '';
+      missingAlert.style.display = 'none';
+      resvSearchInput.value = '';
+    }
+
+    clearBtn.addEventListener('click', () => {
+      rawInput.value = '';
+      fileInput.value = '';
+      resetTable();
+    });
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>"']/g, (m) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[m]);
+    }
+  </script>
+</body>
+</html>
